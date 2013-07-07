@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href='https://fonts.googleapis.com/css?family=Architects+Daughter' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <title>fibonacci-clojure by jaratec</title>
+  </head>
+
+  <body>
+    <header>
+      <div class="inner">
+        <h1>fibonacci-clojure</h1>
+        <h2>clojure fibonacci memoization infinte-sequence recursive</h2>
+        <a href="https://github.com/jaratec" class="button"><small>Follow me on</small>GitHub</a>
+      </div>
+    </header>
+
+    <div id="content-wrapper">
+      <div class="inner clearfix">
+        <section id="main-content">
+          <h1>
+<a name="clojure-practice-in-small-pieces--fibonacci" class="anchor" href="#clojure-practice-in-small-pieces--fibonacci"><span class="octicon octicon-link"></span></a>Clojure practice in small pieces : Fibonacci</h1>
+
+<p>So, you know some Clojure, and you want to practice a little bit, perhaps solving the <a href="http://www.4clojure.com/">4clojure</a> problems. One such problem is computing the <a href="http://en.wikipedia.org/wiki/Fibonacci_numbers">Fibonacci numbers</a>.</p>
+
+<p>For this session, I'll suggest to open a new file in your editor and to start the Clojure repl to follow along.</p>
+
+<p>The (naive) recursive approach would produce code like this:</p>
+
+<div class="highlight"><pre><span class="p">(</span><span class="kd">defn </span><span class="nv">fibonacci-naive</span> <span class="p">[</span><span class="nv">n</span><span class="p">]</span>
+  <span class="p">(</span><span class="k">if </span><span class="p">(</span><span class="nb">&lt;= </span><span class="nv">n</span> <span class="mi">1</span><span class="p">)</span> <span class="nv">n</span>
+      <span class="p">(</span><span class="nb">+ </span><span class="p">(</span><span class="nf">fibonacci-naive</span> <span class="p">(</span><span class="nb">- </span><span class="nv">n</span> <span class="mi">1</span><span class="p">))</span> <span class="p">(</span><span class="nf">fibonacci-naive</span> <span class="p">(</span><span class="nb">- </span><span class="nv">n</span> <span class="mi">2</span><span class="p">)))))</span>
+</pre></div>
+
+<p>You have a stop condition for the cases n=0, n=1, and you define f(n) as the sum of f(n-1) and f(n-2).</p>
+
+<p>You can test the function:</p>
+
+<div class="highlight"><pre><span class="p">(</span><span class="nb">map </span><span class="nv">fibonacci-naive</span> <span class="p">(</span><span class="nb">range </span><span class="mi">10</span><span class="p">))</span>
+</pre></div>
+
+<p>However, this solution does not work very well for a big n, where big depends on your machine. As you increase n, at one point you will observe that the computation starts to get slow. The reason is that you are doubling the number of computations with every recursive step.
+Note that, since the algorithm has two recursive calls, you can't perform a tail-call optimization. We'll come back to this.</p>
+
+<p>One idea would be to store the intermediate computation in order to perform a computation only once. This technique is called memoization. We will use a map structure as a cache/lookup table. This particular approach will require mutation, so we'll use an atom for that.</p>
+
+<div class="highlight"><pre><span class="p">(</span><span class="nf">atom</span> <span class="p">{</span><span class="ss">:0</span> <span class="mi">0</span>
+       <span class="ss">:1</span> <span class="mi">1</span><span class="p">})</span>
+</pre></div>
+
+<p>The cache is initially populated with the first 2 Fibonacci numbers. Next, we'll need a function to get a computed value for a given number from the cache.</p>
+
+<div class="highlight"><pre><span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">k</span><span class="p">]</span>
+  <span class="p">((</span><span class="nb">keyword </span><span class="p">(</span><span class="nb">str </span><span class="nv">k</span><span class="p">))</span> <span class="o">@</span><span class="nv">cache</span><span class="p">)))</span>
+</pre></div>
+
+<p>We'll also need a function to store a computed value in the cache (note the mutation).</p>
+
+<div class="highlight"><pre><span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">k</span> <span class="nv">v</span><span class="p">]</span>
+  <span class="p">(</span><span class="nf">swap!</span> <span class="nv">cache</span> <span class="nb">assoc </span><span class="p">(</span><span class="nb">keyword </span><span class="p">(</span><span class="nb">str </span><span class="nv">k</span><span class="p">))</span> <span class="nv">v</span><span class="p">))</span>
+</pre></div>
+
+<p>With these in place, we can now write a function that computes the value of a particular number and saves the value in the cache . This function assumes all the previous (technically the previous 2 are enough) numbers have been computed and are stored in the cache.</p>
+
+<div class="highlight"><pre><span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">i</span><span class="p">]</span>
+  <span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">result</span> <span class="p">(</span><span class="nb">+ </span><span class="p">(</span><span class="nf">get-val</span> <span class="p">(</span><span class="nb">- </span><span class="nv">i</span> <span class="mi">1</span><span class="p">))</span>
+                 <span class="p">(</span><span class="nf">get-val</span> <span class="p">(</span><span class="nb">- </span><span class="nv">i</span> <span class="mi">2</span><span class="p">)))]</span>
+   <span class="p">(</span><span class="nf">do</span>
+     <span class="p">(</span><span class="nf">put-val</span> <span class="nv">i</span> <span class="nv">result</span><span class="p">)</span>
+     <span class="nv">result</span><span class="p">)))</span>
+</pre></div>
+
+<p>get-val retrieves the value from the cache, put-value saves teh computed value to the cache.
+We'll put all these together as bindings in a let expression. We will compute the first n numbers with a for expression.</p>
+
+<div class="highlight"><pre><span class="p">(</span><span class="kd">defn </span><span class="nv">fibonacci-with-state</span> <span class="p">[</span><span class="nv">n</span><span class="p">]</span>
+  <span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">cache</span> <span class="p">(</span><span class="nf">atom</span> <span class="p">{</span><span class="ss">:0</span> <span class="mi">0</span>
+                     <span class="ss">:1</span> <span class="mi">1</span><span class="p">})</span>
+        <span class="nv">get-val</span> <span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">k</span><span class="p">]</span>
+                  <span class="p">((</span><span class="nb">keyword </span><span class="p">(</span><span class="nb">str </span><span class="nv">k</span><span class="p">))</span> <span class="o">@</span><span class="nv">cache</span><span class="p">))</span>
+        <span class="nv">put-val</span> <span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">k</span> <span class="nv">v</span><span class="p">]</span>
+                  <span class="p">(</span><span class="nf">swap!</span> <span class="nv">cache</span> <span class="nb">assoc </span><span class="p">(</span><span class="nb">keyword </span><span class="p">(</span><span class="nb">str </span><span class="nv">k</span><span class="p">))</span> <span class="nv">v</span><span class="p">))</span>
+        <span class="nb">next </span><span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">i</span><span class="p">]</span>
+               <span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">result</span> <span class="p">(</span><span class="nb">+ </span><span class="p">(</span><span class="nf">get-val</span> <span class="p">(</span><span class="nb">- </span><span class="nv">i</span> <span class="mi">1</span><span class="p">))</span>
+                               <span class="p">(</span><span class="nf">get-val</span> <span class="p">(</span><span class="nb">- </span><span class="nv">i</span> <span class="mi">2</span><span class="p">)))]</span>
+                 <span class="p">(</span><span class="nf">do</span>
+                   <span class="p">(</span><span class="nf">put-val</span> <span class="nv">i</span> <span class="nv">result</span><span class="p">)</span>
+                   <span class="nv">result</span><span class="p">)))]</span>
+    <span class="p">(</span><span class="nb">for </span><span class="p">[</span><span class="nv">x</span> <span class="p">(</span><span class="nb">range </span><span class="mi">0</span> <span class="p">(</span><span class="nb">inc </span><span class="nv">n</span><span class="p">))]</span>
+      <span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">v</span> <span class="p">(</span><span class="nf">get-val</span> <span class="nv">x</span><span class="p">)]</span>
+        <span class="p">(</span><span class="k">if </span><span class="p">(</span><span class="nb">nil? </span><span class="nv">v</span><span class="p">)</span> <span class="p">(</span><span class="nb">next </span><span class="nv">x</span><span class="p">)</span>
+            <span class="nv">v</span><span class="p">)))))</span>
+</pre></div>
+
+<p>You can test safely this version on a big n number. It performs well, because any computation is done only once, and then is stored in memory in case it is needed.
+Having arrived at this point, there is one important comment to make. Unlike the naive recursive version where we started the computation at the given n and descended towards 1 and 0, this memoized version (actually the for expression) starts from 0 and goes up toward the given n. Because of this, even a memoized version of fibonacci-naive won't perform, since the the needed compuations (the previous values) are not available in memory. You can try to see for yourself.</p>
+
+<div class="highlight"><pre><span class="p">((</span><span class="nf">memoize</span> <span class="nv">fibonacci-naive</span><span class="p">)</span> <span class="mi">10</span><span class="p">)</span> <span class="c1">;; try increasing values for n</span>
+</pre></div>
+
+<p>The memoized solution is quite lengthy, it also uses mutations. Maybe there is a better way? Of course it is. I only took you on this detour to show you how to implement memoization in case you need it.</p>
+
+<p>We have seen that the memoized version started from 0 and worked its way to the n. We will make a recursive version that will do the same, start from 0 and store the intermediary results. The trick is to use an accumulator as an argument that you will pass along each recursive step.</p>
+
+<div class="highlight"><pre><span class="p">(</span><span class="kd">defn </span><span class="nv">fibonacci-from-the-ground-up</span> <span class="p">[</span><span class="nv">n</span><span class="p">]</span>
+  <span class="p">(</span><span class="nf">letfn</span> <span class="p">[(</span><span class="nf">next-val</span> <span class="p">[</span><span class="nv">c</span><span class="p">]</span>
+            <span class="p">(</span><span class="nb">conj </span><span class="nv">c</span> <span class="p">(</span><span class="nb">+ </span><span class="p">(</span><span class="nb">last </span><span class="nv">c</span><span class="p">)</span> <span class="p">(</span><span class="nb">last </span><span class="p">(</span><span class="nb">butlast </span><span class="nv">c</span><span class="p">)))))</span>
+          <span class="p">(</span><span class="nf">fibonacci-seq</span> <span class="p">[</span><span class="nv">c</span> <span class="nv">i</span><span class="p">]</span>
+            <span class="p">(</span><span class="k">if </span><span class="p">(</span><span class="nb">&gt; </span><span class="nv">i</span> <span class="nv">n</span><span class="p">)</span> <span class="nv">c</span>
+                <span class="p">(</span><span class="nf">fibonacci-seq</span> <span class="p">(</span><span class="nf">next-val</span> <span class="nv">c</span><span class="p">)</span> <span class="p">(</span><span class="nb">inc </span><span class="nv">i</span><span class="p">))))]</span>
+    <span class="p">(</span><span class="nb">take </span><span class="nv">n</span> <span class="p">(</span><span class="nf">fibonacci-seq</span> <span class="p">[</span><span class="mi">0</span> <span class="mi">1</span><span class="p">]</span> <span class="mi">2</span><span class="p">))))</span>
+</pre></div>
+
+<p>We have defined a helper function, next-val. This function takes the so-far computed Fibonacci numbers (a sequence), computes the next Fibonacci number (by using the last two elements of the input), and returns a new sequence where the computed number is conjoined to the input sequence.
+Our recursive function, fibonacci-seq takes now 2 arguments. The first argument is the solution (or the partial solution), the second argument is a number to used in the stopping condition. Once we have reached the desired number n, we simply return the accumulated solution.</p>
+
+<p>Before going further, I'd like to take the time to make two comments about this solution. One, the recursive functions that employ the accumulator technique are amenable to tail-call optimizations. For that, the recursive call needs to be the last computation in the recursive step. I won't belabor the point further. And second, this technique is quite appreciated by programmers coming from imperative languages, but for the wrong reasons. To them this accumulation technique resambles mutation, and as a consequence of finding a familiar ground, they tend to overuse it.</p>
+
+<p>Next, let's get rid of the recursion. Being able to replace recursion with higher-order functions is key to writing more expressive programs. Now, if you'll think about it, we already are building the solution from the ground up. So we can use a reduce function that builds/accumulates the solution. The tricks to use, is to use a range for the numbers upto n, and to have as start value the sequence [0 1], same as the recursive solution.</p>
+
+<div class="highlight"><pre><span class="p">(</span><span class="kd">defn </span><span class="nv">fibonacci-reduce</span> <span class="p">[</span><span class="nv">n</span><span class="p">]</span>
+  <span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">next-val</span> <span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">c</span> <span class="nv">_</span><span class="p">]</span>
+                   <span class="p">(</span><span class="nb">conj </span><span class="nv">c</span> <span class="p">(</span><span class="nb">+ </span><span class="p">(</span><span class="nb">last </span><span class="nv">c</span><span class="p">)</span> <span class="p">(</span><span class="nb">last </span><span class="p">(</span><span class="nb">butlast </span><span class="nv">c</span><span class="p">)))))]</span>
+    <span class="p">(</span><span class="nb">take </span><span class="nv">n</span> <span class="p">(</span><span class="nb">reduce </span><span class="nv">next-val</span> <span class="p">[</span><span class="mi">0</span> <span class="mi">1</span><span class="p">]</span> <span class="p">(</span><span class="nb">range </span><span class="mi">2</span> <span class="p">(</span><span class="nb">inc </span><span class="nv">n</span><span class="p">))))))</span>
+</pre></div>
+
+<p>So far, so good. Let's try writing the Fibonacci numbers as an infinte sequence. Instead of reduce we will use iterate. This function takes as arguments a function f, a starting value x and produces the infinite sequence x, f(x), f(f(x)), f(f(f(x))), ...
+So let's transform the reduce version to an iterate version.</p>
+
+<div class="highlight"><pre><span class="p">(</span><span class="kd">defn </span><span class="nv">fibonacci-iterate</span> <span class="p">[</span><span class="nv">n</span><span class="p">]</span>
+  <span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">next-val</span> <span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">c</span><span class="p">]</span>
+                   <span class="p">(</span><span class="nb">conj </span><span class="nv">c</span> <span class="p">(</span><span class="nb">+ </span><span class="p">(</span><span class="nb">last </span><span class="nv">c</span><span class="p">)</span> <span class="p">(</span><span class="nb">last </span><span class="p">(</span><span class="nb">butlast </span><span class="nv">c</span><span class="p">)))))]</span>
+    <span class="p">(</span><span class="nb">last </span><span class="p">(</span><span class="nb">take </span><span class="nv">n</span> <span class="p">(</span><span class="nb">iterate </span><span class="nv">next-val</span> <span class="p">[</span><span class="mi">0</span> <span class="mi">1</span><span class="p">])))))</span>
+</pre></div>
+
+<p>OK. Let me explain now how a lazy sequence works. What is needed is something that produces the next element of the sequence but at the same time it inhibits the evaluation of the rest of the sequence. How should a function that does precisely that, look like? A function should produce the next element and a lazy structure (for example an unevaluated function or a lazy sequence). Here is an example:</p>
+
+<div class="highlight"><pre><span class="p">(</span><span class="k">def </span><span class="nv">fibonacci-generator</span>
+  <span class="p">((</span><span class="k">fn </span><span class="nv">generator</span> <span class="p">[</span><span class="nv">a</span> <span class="nv">b</span><span class="p">]</span> <span class="p">(</span><span class="nf">lazy-seq</span> <span class="p">(</span><span class="nb">cons </span><span class="nv">a</span> <span class="p">(</span><span class="nf">generator</span> <span class="nv">b</span> <span class="p">(</span><span class="nb">+ </span><span class="nv">a</span> <span class="nv">b</span><span class="p">)))))</span> <span class="mi">0</span> <span class="mi">1</span><span class="p">))</span>
+</pre></div>
+
+<p>Notice that the generator function does not accumulate the fibonacci numbers anymore. It only takes the last two values, needed to compute the next one. Notice also that fibonacci-generator is a function (generator).
+This version of fibonacci is deceptively simple.</p>
+
+<div class="highlight"><pre><span class="p">(</span><span class="nb">take </span><span class="mi">10</span> <span class="nv">fibonacci-generator</span><span class="p">)</span>
+</pre></div>
+
+<p>The end of this post is already overdue, so as a reward for your patience I'll give you a version of fibonacci recursive sequence.</p>
+
+<div class="highlight"><pre><span class="p">(</span><span class="k">def </span><span class="nv">fibs</span> <span class="p">(</span><span class="nb">concat </span><span class="p">[</span><span class="mi">0</span> <span class="mi">1</span><span class="p">]</span> <span class="p">(</span><span class="nb">map + </span><span class="nv">fibs</span> <span class="p">(</span><span class="nb">rest </span><span class="nv">fibs</span><span class="p">))))</span>
+</pre></div>
+
+<p>The function map returns a lazy sequence that is only realized on demand.</p>
+
+<div class="highlight"><pre><span class="p">(</span><span class="nb">take </span><span class="mi">10</span> <span class="nv">fibs</span><span class="p">)</span>
+</pre></div>
+
+<p>So, we have used the Fibonacci numbers as an excuse to explore some techniques of functional programming in general and of Clojure in particular: recursive functions, memoization and lazy inifinte sequences. Go forth and practice your newly acquired skills.</p>
+        </section>
+
+        <aside id="sidebar">
+
+
+          <p>This page was generated by <a href="pages.github.com">GitHub Pages</a> using the Architect theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.</p>
+        </aside>
+      </div>
+    </div>
+
+  
+  </body>
+</html>
