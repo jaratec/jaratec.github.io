@@ -1,7 +1,7 @@
 ---
 layout: post
 title: Fibonacci in Clojure
-tags: clojure basics recursion memoization streams
+tags: [clojure basics recursion memoization streams]
 ---
 
 Clojure basics : Fibonacci
