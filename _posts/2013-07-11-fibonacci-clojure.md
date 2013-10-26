@@ -132,5 +132,5 @@ The function map returns a lazy sequence that is only realized on demand.
 (take 10 fibs)
 {% endhighlight %}
 
-So, we have used the Fibonacci numbers as an excuse to explore some techniques of functional programming in general and of Clojure in particular: recursive functions, memoization and lazy inifinte sequences. Go forth and practice your newly acquired skills.
+So, we have used the Fibonacci numbers as an excuse to explore some techniques of functional programming in general and of Clojure in particular: recursive functions, memoization and lazy infinite sequences. Go forth and practice your newly acquired skills.
 
